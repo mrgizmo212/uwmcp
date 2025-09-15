@@ -23,33 +23,47 @@ if UW_BEARER_TOKEN: headers["Authorization"] = f"Bearer {UW_BEARER_TOKEN}"
 
 Deploy to Render (recommended)
 
-1) Create a “Web Service” in Render and point it at this repo/branch
-2) Configure service:
-   - Build Command: `pip install -r uwmcp/requirements.txt`
-   - Start Command: `python -m uwmcp.run_http`
-   - Runtime: Python 3.11+ (Render’s default is fine)
-3) Environment Variables (Render → Environment):
+1) Create a new “Web Service”
+   - Dashboard → New → Web Service
+   - Connect your GitHub and select this repository/branch
+   - Name: any (e.g., `uwmcp`)
+
+2) Environment
+   - Runtime: Python 3.11+ (Render default works)
+   - Build Command: `pip install -r requirements.txt`
+   - Start Command: `python run_http.py`
+   - Instance Type/Region: choose as needed
+
+3) Environment Variables (Render → Environment)
    - `UW_BASE_URL` = your upstream UW API or proxy URL
-   - `UW_API_KEY` = your key (optional)
-   - `UW_BEARER_TOKEN` = your bearer token (optional)
-   - Do NOT set `PORT` — Render provides it and the server reads it automatically
-4) Deploy. The MCP endpoint will be available at:
-   - `https://<your-service>.onrender.com/mcp`
+   - `UW_API_KEY` = optional; sends `X-API-Key` upstream
+   - `UW_BEARER_TOKEN` = optional; sends `Authorization: Bearer ...` upstream
+   - `UW_TIMEOUT_SECONDS` = optional; default `30.0`
+   - Do NOT set `PORT` — Render injects it, and the server reads it automatically
+
+4) Deploy
+   - Click Create Web Service
+   - On first build, logs will show Python installing deps and the server starting
+   - After deploy, open the service URL in a browser to verify it’s responding
 
 Verify
 
 ```
-curl -i https://<your-service>.onrender.com/mcp
-# Expect HTTP/1.1 200 OK
+# From your machine (replace with your service URL)
+curl -i https://<your-service>.onrender.com
 ```
 
 Local Run (HTTP transport)
 
-From repo root:
+From repo root (package directory), either of the following works:
 ```
+# Option A: script mode (works anywhere)
+python run_http.py
+
+# Option B: module mode (run from the parent directory of this folder)
 python -m uwmcp.run_http
 ```
-This binds 0.0.0.0:${PORT} (defaults to 8000) using streamable‑http.
+The server binds 0.0.0.0:${PORT} (defaults to 8000) using streamable‑http.
 
 Tooling Flow (for agents)
 

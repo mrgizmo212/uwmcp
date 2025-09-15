@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import os
 
-from .server import get_server
+try:
+    # When executed as a module (python -m uwmcp.run_http)
+    from .server import get_server
+except ImportError:  # Script execution fallback (python run_http.py)
+    from server import get_server
 
 
 if __name__ == "__main__":
