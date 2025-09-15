@@ -70,6 +70,9 @@ def search_endpoints(query: Optional[str] = None) -> Dict[str, Any]:
             continue
         summary = op.get("summary") or op.get("description") or ""
         tags = op.get("tags") or []
+        # Omit alerts and websocket tagged endpoints from discovery
+        if any(t in {"alerts", "websocket"} for t in (tags or [])):
+            continue
         params = get_parameters_shallow(spec, op)
         response_schema = extract_response_schema_shallow(spec, op)
 

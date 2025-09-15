@@ -159,6 +159,10 @@ def build_registry_shallow(spec: Dict[str, Any]) -> Dict[str, Any]:
             continue
         summary = op.get("summary") or op.get("description") or ""
         tags = op.get("tags") or []
+        # Omit alerts and websocket endpoints from the registry
+        skip_tags = {"alerts", "websocket"}
+        if any(t in skip_tags for t in (tags or [])):
+            continue
         parameters = get_parameters_shallow(spec, op)
         response_schema = extract_response_schema_shallow(spec, op)
         registry[path] = {
