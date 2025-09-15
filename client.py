@@ -4,7 +4,10 @@ from typing import Optional
 
 import httpx
 
-from .config import UW_BASE_URL, REQUEST_TIMEOUT_SECONDS
+try:
+    from .config import UW_BASE_URL, REQUEST_TIMEOUT_SECONDS
+except ImportError:  # script mode fallback
+    from config import UW_BASE_URL, REQUEST_TIMEOUT_SECONDS
 
 
 _async_client: Optional[httpx.AsyncClient] = None

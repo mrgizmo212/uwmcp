@@ -3,7 +3,10 @@ from __future__ import annotations
 from fastmcp import FastMCP
 
 # Import tool modules so their @mcp.tool decorators register tools
-from .tools.generic import mcp as _generic_mcp  # noqa: F401
+try:
+    from .tools.generic import mcp as _generic_mcp  # type: ignore  # noqa: F401
+except ImportError:
+    from tools.generic import mcp as _generic_mcp  # type: ignore  # noqa: F401
 
 
 def get_server() -> FastMCP:

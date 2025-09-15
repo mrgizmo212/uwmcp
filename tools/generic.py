@@ -4,18 +4,33 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fastmcp import FastMCP  # grounded by fastmcp/examples/simple_echo.py
 
-from ..schemas import (
-    load_spec,
-    list_paths,
-    get_operation,
-    get_parameters_shallow,
-    extract_response_schema_shallow,
-    get_registry_shallow,
-    get_allowed_query_param_names,
-    get_path_param_names,
-)
-from ..auth import build_auth_headers
-from ..client import get_client
+# Support both package execution (python -m uwmcp.run_http) and script execution (python run_http.py)
+try:
+    from ..schemas import (
+        load_spec,
+        list_paths,
+        get_operation,
+        get_parameters_shallow,
+        extract_response_schema_shallow,
+        get_registry_shallow,
+        get_allowed_query_param_names,
+        get_path_param_names,
+    )
+    from ..auth import build_auth_headers
+    from ..client import get_client
+except ImportError:  # pragma: no cover - fallback for script mode on hosts like Render
+    from schemas import (
+        load_spec,
+        list_paths,
+        get_operation,
+        get_parameters_shallow,
+        extract_response_schema_shallow,
+        get_registry_shallow,
+        get_allowed_query_param_names,
+        get_path_param_names,
+    )
+    from auth import build_auth_headers
+    from client import get_client
 
 
 mcp = FastMCP(

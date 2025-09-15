@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Dict
 
-from .config import UW_API_KEY, UW_BEARER_TOKEN
+try:
+    from .config import UW_API_KEY, UW_BEARER_TOKEN
+except ImportError:  # script mode fallback
+    from config import UW_API_KEY, UW_BEARER_TOKEN
 
 
 def build_auth_headers() -> Dict[str, str]:
