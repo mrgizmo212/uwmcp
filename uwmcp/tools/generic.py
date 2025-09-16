@@ -128,6 +128,59 @@ def _format_path(path_template: str, path_params: Dict[str, Any]) -> str:
     return path
 
 
+def _infer_template_and_params(
+    concrete_path: str, registry: Dict[str, Any]
+) -> Optional[Tuple[str, Dict[str, str]]]:
+    """Given a concrete path (e.g., "/api/shorts/NVDA/data"), try to find a
+    matching template from the registry (e.g., "/api/shorts/{ticker}/data").
+
+    Returns the matched template path and inferred path params if a single best
+    match is found; otherwise returns None.
+    """
+    def split_segments(p: str) -> List[str]:
+        p = (p or "").strip()
+        if not p:
+            return []
+        # Normalize leading/trailing slashes
+        p = p if p.startswith("/") else "/" + p
+        p = p.rstrip("/")
+        return [seg for seg in p.split("/") if seg]
+
+    csegs = split_segments(concrete_path)
+    candidates: List[Tuple[int, int, str, Dict[str, str]]] = []
+    for template in registry.keys():
+        tsegs = split_segments(template)
+        if len(tsegs) != len(csegs):
+            continue
+        inferred: Dict[str, str] = {}
+        static_matches = 0
+        ok = True
+        for tseg, cseg in zip(tsegs, csegs):
+            if tseg.startswith("{") and tseg.endswith("}"):
+                pname = tseg[1:-1]
+                if not pname:
+                    ok = False
+                    break
+                inferred[pname] = cseg
+            else:
+                if tseg != cseg:
+                    ok = False
+                    break
+                static_matches += 1
+        if ok:
+            # Higher static_matches preferred; fewer params preferred as tiebreaker
+            candidates.append((static_matches, -len(inferred), template, inferred))
+
+    if not candidates:
+        return None
+
+    candidates.sort(reverse=True)
+    top = candidates[0]
+    # If there are multiple with identical score and param count, accept the first deterministically
+    _, _, best_template, best_params = top
+    return best_template, best_params
+
+
 @mcp.tool()
 async def call_get(path: str, params: Optional[Dict[str, Any]] = None, headers: Optional[Dict[str, str]] = None) -> Any:
     """Execute a GET request for a given OpenAPI path using provided params.
@@ -152,17 +205,58 @@ async def call_get_internal(path: str, params: Optional[Dict[str, Any]] = None, 
 
     # Validate path and parameter names using shallow registry (no response caching)
     registry = get_registry_shallow()
-    if path not in registry:
-        return {"error": f"Unknown GET path: {path}", "known_paths": sorted(list(registry.keys()))[:50]}
 
-    allowed_query = get_allowed_query_param_names(path)
-    required_path = get_path_param_names(path)
+    effective_path = path
+    effective_params: Dict[str, Any] = dict(params or {})
 
-    path_params, query_params = _split_params_for_path(path, params or {})
+    if effective_path not in registry:
+        inferred = _infer_template_and_params(effective_path, registry)
+        if inferred:
+            template_path, inferred_path_params = inferred
+            # Detect conflicts between inferred path params and provided params
+            for k, v in inferred_path_params.items():
+                if k in effective_params and str(effective_params[k]) != str(v):
+                    return {
+                        "error": "Path parameter mismatch",
+                        "param": k,
+                        "from_path": v,
+                        "from_params": str(effective_params[k]),
+                        "template": template_path,
+                    }
+            # Merge and switch to template for validation
+            for k, v in inferred_path_params.items():
+                effective_params.setdefault(k, v)
+            effective_path = template_path
+        else:
+            # Suggest a likely template if any static segments match
+            def _best_suggestion(concrete: str) -> Optional[str]:
+                csegs = [seg for seg in concrete.strip("/").split("/") if seg]
+                best_tpl = None
+                best_score = -1
+                for tpl in registry.keys():
+                    tsegs = [seg for seg in tpl.strip("/").split("/") if seg]
+                    if len(tsegs) != len(csegs):
+                        continue
+                    score = sum(1 for t, c in zip(tsegs, csegs) if not (t.startswith("{") and t.endswith("}")) and t == c)
+                    if score > best_score:
+                        best_score = score
+                        best_tpl = tpl
+                return best_tpl
+
+            return {
+                "error": f"Unknown GET path: {path}",
+                "suggested_template": _best_suggestion(path),
+                "known_paths": sorted(list(registry.keys()))[:50],
+            }
+
+    allowed_query = get_allowed_query_param_names(effective_path)
+    required_path = get_path_param_names(effective_path)
+
+    path_params, query_params = _split_params_for_path(effective_path, effective_params or {})
 
     missing_path = sorted(list(required_path - set(path_params.keys())))
     if missing_path:
-        return {"error": "Missing path parameters", "missing": missing_path, "path": path}
+        return {"error": "Missing path parameters", "missing": missing_path, "path": effective_path}
 
     unknown_query = sorted([k for k in (query_params or {}).keys() if k not in allowed_query])
     if unknown_query:
@@ -170,10 +264,10 @@ async def call_get_internal(path: str, params: Optional[Dict[str, Any]] = None, 
             "error": "Unknown query parameters",
             "unknown": unknown_query,
             "allowed": sorted(list(allowed_query)),
-            "path": path,
+            "path": effective_path,
         }
 
-    real_path = _format_path(path, path_params)
+    real_path = _format_path(effective_path, path_params)
 
     # Make request, mirror uwapi proxy style
     resp = await client.get(real_path, params=query_params, headers=upstream_headers)
