@@ -1,6 +1,7 @@
-from __future__ import annotations
+      from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
+import json
 
 from fastmcp import FastMCP  # grounded by fastmcp/examples/simple_echo.py
 
@@ -274,7 +275,39 @@ async def call_get_internal(path: str, params: Optional[Dict[str, Any]] = None, 
     content_type = resp.headers.get("content-type", "")
     if "application/json" in content_type.lower():
         try:
-            return resp.json()
+            data = resp.json()
+            # Derive a simple tool name from the resolved path; fallback to uwmcp
+            tool_name = (
+                real_path.strip("/").replace("/", "_").replace("{", "").replace("}", "")
+                or "uwmcp"
+            )
+            # Determine content type based on the endpoint path
+            lower_path = real_path.lower()
+            if "darkpool" in lower_path:
+                content_type_ttg = "darkpool_trades"
+            elif "options" in lower_path and "chain" not in lower_path:
+                content_type_ttg = "options_flow"
+            elif "market/movers" in lower_path:
+                content_type_ttg = "market_movers"
+            else:
+                content_type_ttg = "json"
+
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(data),
+                    },
+                    {
+                        "type": "ttg",
+                        "ttg": {
+                            "toolName": tool_name,
+                            "contentType": content_type_ttg,
+                            "data": data,
+                        },
+                    },
+                ]
+            }
         except ValueError:
             pass
     return {

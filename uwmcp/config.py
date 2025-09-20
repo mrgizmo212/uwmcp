@@ -15,8 +15,8 @@ def get_env(var_name: str) -> Optional[str]:
     return None
 
 
-# Defaults align with uwapi upstream
-UW_BASE_URL: str = get_env("UW_BASE_URL") or "https://api.unusualwhales.com"
+# Defaults: always prefer proxy unless explicitly overridden via env
+UW_BASE_URL: str = get_env("UW_BASE_URL") or "https://uwapi.onrender.com"
 UW_API_KEY: Optional[str] = get_env("UW_API_KEY")
 UW_BEARER_TOKEN: Optional[str] = get_env("UW_BEARER_TOKEN")
 
