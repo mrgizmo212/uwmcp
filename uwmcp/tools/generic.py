@@ -283,6 +283,7 @@ async def call_get_internal(path: str, params: Optional[Dict[str, Any]] = None, 
             )
             # Determine content type based on the endpoint path
             lower_path = real_path.lower()
+            print(f"DEBUG: real_path={real_path}, lower_path={lower_path}, tool_name={tool_name}")  # DEBUG
             if "darkpool" in lower_path:
                 content_type_ttg = "darkpool_trades"
             elif "options" in lower_path and "chain" not in lower_path:
